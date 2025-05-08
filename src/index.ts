@@ -26,8 +26,12 @@ export class BoilerplateMCP extends PaidMcpAgent<Env, State, AgentProps> {
 	async init() {
 		tools.addTool(this);
 		tools.calculateTool(this);
-		tools.bigAddTool(this, {
+		tools.subscriptionTool(this, {
 			STRIPE_PRICE_ID: this.env.STRIPE_PRICE_ID,
+			BASE_URL: this.env.BASE_URL
+		});
+		tools.meteredAddTool(this, {
+			STRIPE_METERED_PRICE_ID: this.env.STRIPE_METERED_PRICE_ID,
 			BASE_URL: this.env.BASE_URL
 		});
 	}

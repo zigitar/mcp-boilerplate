@@ -31,11 +31,18 @@ MCP tools are defined in the `src/tools/` directory. Each tool is typically in i
     -   Input parameters are validated using `zod`.
 
 -   **Paid Tools**:
-    -   Defined using `agent.paidTool()`.
-    -   Requires `STRIPE_PRICE_ID` and `BASE_URL` to be passed from environment variables.
-    -   Uses `REUSABLE_PAYMENT_REASON` from `@src/helpers/constants.ts` to instruct the AI agent on how to guide the user through the payment process.
-    -   Example: `@src/tools/bigAdd.ts`.
-    -   The `successUrl` (e.g., `${baseUrl}/payment/success`) redirects users after successful payment, leading to `@src/pages/payment-success.html`.
+    -   Defined using `agent.paidTool()`. Tools can be subscription-based or metered.
+    -   Both types require `BASE_URL` to be passed from environment variables.
+    -   **Subscription Tools**:
+        -   Require `STRIPE_PRICE_ID` (for a recurring subscription product).
+        -   Use `REUSABLE_PAYMENT_REASON` from `@src/helpers/constants.ts` for payment prompts.
+        -   Example: `@src/tools/subscriptionAdd.ts`.
+    -   **Metered Tools**:
+        -   Require `STRIPE_METERED_PRICE_ID` (for a metered usage product).
+        -   Use a specific `paymentReason` (often combining a custom message with `METERED_TOOL_PAYMENT_REASON` from `@src/helpers/constants.ts`) to inform users about metered billing.
+        -   Require a `meterEvent` string in the tool definition, which must match an event name configured in your Stripe meter for that product/price. This event is used to report usage to Stripe.
+        -   Example: `@src/tools/meteredAdd.ts`.
+    -   The `successUrl` (e.g., `${baseUrl}/payment/success`) redirects users after successful payment for both types, leading to `@src/pages/payment-success.html`.
 
 ## Authentication
 
@@ -51,12 +58,12 @@ Authentication is handled by `@cloudflare/workers-oauth-provider`, with specific
 
 ## Payment Integration (Stripe)
 
-Payments for paid tools are managed through Stripe integration.
+Payments for paid tools are managed through Stripe integration, supporting both subscription and metered billing.
 
 -   **Core Component**: `experimental_PaidMcpAgent` from `@stripe/agent-toolkit/cloudflare` is the base for `BoilerplateMCP`, enabling paid tool functionality.
--   **Configuration**: Requires `STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` in `.dev.vars`.
+-   **Configuration**: Requires `STRIPE_SECRET_KEY` in `.dev.vars`. For subscription tools, `STRIPE_PRICE_ID` is needed. For metered tools, `STRIPE_METERED_PRICE_ID` is needed.
 -   **Webhook (Optional)**: `@src/webhooks/stripe.ts` handles incoming Stripe webhooks (e.g., `checkout.session.completed`) if configured. This requires `STRIPE_WEBHOOK_SECRET`.
--   **Payment Flow**: When a user attempts to use a paid tool without prior payment, the `PaidMcpAgent` initiates a Stripe Checkout session. The `paymentReason` (defined in `@src/helpers/constants.ts`) is used to inform the user.
+-   **Payment Flow**: When a user attempts to use a paid tool without prior payment, the `PaidMcpAgent` initiates a Stripe Checkout session. The `paymentReason` informs the user. For metered tools, usage is reported via a `meterEvent` defined in the tool, which corresponds to a Stripe meter.
 
 ## Frontend Pages
 

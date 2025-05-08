@@ -2,7 +2,7 @@ import { z } from "zod";
 import { experimental_PaidMcpAgent as PaidMcpAgent } from "@stripe/agent-toolkit/cloudflare";
 import { REUSABLE_PAYMENT_REASON } from "../helpers/constants";
 
-export function bigAddTool(
+export function subscriptionTool(
 	agent: PaidMcpAgent<Env, any, any>, 
 	env?: { STRIPE_PRICE_ID: string; BASE_URL: string }
 ) {
@@ -15,7 +15,7 @@ export function bigAddTool(
 	}
 	
 	agent.paidTool(
-		"big_add",
+		"subscription_add",
 		{ a: z.number(), b: z.number() },
 		async ({ a, b }: { a: number; b: number }) => ({
 			content: [{ type: "text", text: String(a + b) }],

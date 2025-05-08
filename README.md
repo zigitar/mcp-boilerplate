@@ -145,6 +145,7 @@ After completing either Step 4a or 4b, proceed to Step 5.
 ```ini
 STRIPE_SECRET_KEY="sk_test_your-key-here"
 STRIPE_PRICE_ID="price_your-price-id-here"
+STRIPE_METERED_PRICE_ID="your-stripe-metered-price-id"
 ```
 
 ### Step 6: Complete Your Settings
@@ -158,6 +159,7 @@ GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 STRIPE_SECRET_KEY="your-stripe-secret-key"
 STRIPE_PRICE_ID="your-stripe-price-id"
+STRIPE_METERED_PRICE_ID="your-stripe-metered-price-id"
 ```
 
 For the `COOKIE_ENCRYPTION_KEY`, you can generate a random string with this command:
@@ -229,9 +231,11 @@ npx wrangler deploy
 1. After deployment, you'll get a URL like `https://your-worker-name.your-account.workers.dev`
 
 2a. Update your Google OAuth settings:
-   - Go back to Google Cloud Console > APIs & Services > Credentials
-   - Edit your OAuth client
-   - Add another redirect URI: `https://your-worker-name.your-account.workers.dev/callback/google`
+   - Go back to Google Cloud Console > APIs & Services > Credentials.
+   - Edit your OAuth client.
+   - Add another redirect URI: `https://your-worker-name.your-account.workers.dev/callback/google`.
+   - Next, navigate to the "OAuth consent screen" page (still within "APIs & Services").
+   - Under "Publishing status", if it currently shows "Testing", click the "Publish app" button and confirm to move it to "Production". This allows users outside your GSuite organization to use the login if you initially set it up as "External".
 
 2b. Update your GitHub OAuth App settings: (optional)
    - Go to your GitHub Developer settings > OAuth Apps
@@ -246,6 +250,7 @@ npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put STRIPE_SECRET_KEY
 npx wrangler secret put STRIPE_PRICE_ID
+npx wrangler secret put STRIPE_METERED_PRICE_ID
 ```
    
    For the `BASE_URL`, use your Cloudflare URL: `https://your-worker-name.your-account.workers.dev`
@@ -302,70 +307,174 @@ export * from './myTool';
 tools.myTool(this);
 ```
 
-### Creating a Paid Tool
+### Creating Paid Tools: Subscription or Metered
 
-To create a tool that requires payment:
+You can create tools that require payment in two ways: recurring subscriptions or metered usage.
 
-1. Create a new file in the `src/tools` folder (for example: `myPaidTool.ts`)
-2. Copy this template from the existing `bigAdd.ts` example:
+#### Option 1: Creating a Subscription-Based Paid Tool
+
+This option is suitable if you want to charge users a recurring fee (e.g., monthly) for access to a tool or a suite of tools.
+
+**Stripe Setup for Subscription Billing:**
+
+1.  In your Stripe Dashboard, create a new Product.
+2.  Give your product a name (e.g., "Pro Access Tier").
+3.  Add a Price to this product:
+    *   Select "Recurring" for the pricing model.
+    *   Set the price amount and billing interval (e.g., $10 per month).
+    *   Save the price.
+4.  After creating the price, Stripe will show you the Price ID (e.g., `price_xxxxxxxxxxxxxx`). This is the ID you will use for `STRIPE_PRICE_ID` in your `.dev.vars` file and when registering the tool.
+
+**Tool Implementation:**
+
+1.  Create a new file in the `src/tools` folder (for example: `mySubscriptionTool.ts`)
+2.  Copy this template from the existing `subscriptionAdd.ts` example:
 
 ```typescript
 import { z } from "zod";
 import { experimental_PaidMcpAgent as PaidMcpAgent } from "@stripe/agent-toolkit/cloudflare";
 import { REUSABLE_PAYMENT_REASON } from "../helpers/constants";
 
-export function myPaidTool(
-  agent: PaidMcpAgent<Env, any, any>, 
+export function mySubscriptionTool(
+  agent: PaidMcpAgent<Env, any, any>,
   env?: { STRIPE_PRICE_ID: string; BASE_URL: string }
 ) {
   const priceId = env?.STRIPE_PRICE_ID || null;
   const baseUrl = env?.BASE_URL || null;
 
   if (!priceId || !baseUrl) {
-    throw new Error("No env provided");
+    throw new Error("Stripe Price ID and Base URL must be provided for paid tools");
   }
-  
+
   agent.paidTool(
-    "my_paid_tool_name",               // The tool name
-    {                                  // Input parameters
-      input1: z.string(),              // Parameter definitions using Zod
-      input2: z.number()               // E.g., strings, numbers, booleans
+    "my_subscription_tool_name", // The tool name
+    {
+      // Input parameters
+      input1: z.string(), // Parameter definitions using Zod
+      input2: z.number(), // E.g., strings, numbers, booleans
     },
     async ({ input1, input2 }: { input1: string; input2: number }) => ({
       // The function that runs when the tool is called
-      content: [{ type: "text", text: `You provided: ${input1} and ${input2}` }],
+      content: [
+        { type: "text", text: `You provided: ${input1} and ${input2}` },
+      ],
     }),
     {
-      priceId,                         // Uses the Stripe price ID
+      priceId, // Uses the Stripe price ID for a subscription product
       successUrl: `${baseUrl}/payment/success`,
-      paymentReason: REUSABLE_PAYMENT_REASON,
+      paymentReason: REUSABLE_PAYMENT_REASON, // General reason shown to user
     }
   );
 }
 ```
 
-3. Modify the code to create your own paid tool:
-   - Change the function name (`myPaidTool`)
-   - Change the tool name (`my_paid_tool_name`)
-   - Define the input parameters your tool needs
-   - Write the code that runs when the tool is called
-
-4. Add your tool to `src/tools/index.ts`:
+3.  Modify the code:
+    *   Change the function name (`mySubscriptionTool`)
+    *   Change the tool name (`my_subscription_tool_name`)
+    *   Update the input parameters and the tool's logic.
+4.  Add your tool to `src/tools/index.ts`:
 ```typescript
 // Add this line with your other exports
-export * from './myPaidTool';
+export * from './mySubscriptionTool';
 ```
 
-1. Register your tool in `src/index.ts`:
+5.  Register your tool in `src/index.ts`:
 ```typescript
 // Inside the init() method, add:
-tools.myPaidTool(this, { 
-  STRIPE_PRICE_ID: this.env.STRIPE_PRICE_ID, 
-  BASE_URL: this.env.BASE_URL 
+tools.mySubscriptionTool(this, {
+  STRIPE_PRICE_ID: this.env.STRIPE_PRICE_ID, // Ensure this matches a subscription Price ID
+  BASE_URL: this.env.BASE_URL
 });
 ```
 
-You can create different paid tools with different Stripe products by creating additional price IDs in your Stripe dashboard and passing them as environment variables. Note: Currently, only Stripe subscription products are supported for paid tools.
+#### Option 2: Creating a Metered-Usage Paid Tool
+
+This option is suitable if you want to charge users based on how much they use an MCP tool.
+
+**Stripe Setup for Metered Billing:**
+
+1.  In your Stripe Dashboard, create a new Product.
+2.  Add a Price to this product.
+    *   Choose "Standard pricing" or "Package pricing" as appropriate for your model.
+    *   **Under "Price options", check "Usage is metered".**
+    *   You can then define how usage is reported (e.g., "per unit").
+    *   If you want to offer a free tier (like the first 3 uses are free), you can set up "Graduated pricing". For example:
+        *   First 3 units: $0.00 per unit
+        *   Next units (4 and up): $0.10 per unit
+3.  After creating the price, Stripe will show you the Price ID (e.g., `price_xxxxxxxxxxxxxx`).
+4.  You will also need to define a "meter" in Stripe for this product/price if you haven't already. This meter will have an event name (e.g., `metered_add_usage`) that you'll use in your tool's code. You can usually set this up under the "Usage" tab of your product or when defining the metered price.
+
+**Tool Implementation:**
+
+1.  Create a new file in the `src/tools` folder (e.g., `myMeteredTool.ts`).
+2.  Use this template, inspired by the `meteredAdd.ts` example:
+
+```typescript
+import { z } from "zod";
+import { experimental_PaidMcpAgent as PaidMcpAgent } from "@stripe/agent-toolkit/cloudflare";
+import { METERED_TOOL_PAYMENT_REASON } from "../helpers/constants"; // You might want a specific constant
+
+export function myMeteredTool(
+  agent: PaidMcpAgent<Env, any, any>,
+  env?: { STRIPE_METERED_PRICE_ID: string; BASE_URL: string }
+) {
+  const priceId = env?.STRIPE_METERED_PRICE_ID || null;
+  const baseUrl = env?.BASE_URL || null;
+
+  if (!priceId || !baseUrl) {
+    throw new Error("Stripe Metered Price ID and Base URL must be provided for metered tools");
+  }
+
+  agent.paidTool(
+    "my_metered_tool_name", // The tool name
+    {
+      // Input parameters
+      a: z.number(),
+      b: z.number(),
+    },
+    async ({ a, b }: { a: number; b: number }) => {
+      // The function that runs when the tool is called
+      // IMPORTANT: Business logic for your tool
+      const result = a + b; // Example logic
+      return {
+        content: [{ type: "text", text: String(result) }],
+      };
+    },
+    {
+      priceId, // Uses the Stripe Price ID for a metered product
+      successUrl: `${baseUrl}/payment/success`,
+      paymentReason:
+        "METER INFO: Details about your metered usage. E.g., Your first X uses are free, then $Y per use. " +
+        METERED_TOOL_PAYMENT_REASON, // Customize this message
+      meterEvent: "your_meter_event_name_from_stripe", // ** IMPORTANT: Use the event name from your Stripe meter setup **
+                                                     // e.g., "metered_add_usage"
+    }
+  );
+}
+```
+
+3.  Modify the code:
+    *   Change the function name (`myMeteredTool`).
+    *   Change the tool name (`my_metered_tool_name`).
+    *   Update the input parameters and the tool's core logic.
+    *   **Crucially, update `meterEvent`** to match the event name you configured in your Stripe meter.
+    *   Customize the `paymentReason` to clearly explain the metered billing to the user.
+4.  Add your tool to `src/tools/index.ts`:
+```typescript
+// Add this line with your other exports
+export * from './myMeteredTool';
+```
+
+5.  Register your tool in `src/index.ts`:
+```typescript
+// Inside the init() method, add:
+tools.myMeteredTool(this, {
+  STRIPE_METERED_PRICE_ID: this.env.STRIPE_METERED_PRICE_ID, // Ensure this matches your metered Price ID
+  BASE_URL: this.env.BASE_URL
+});
+```
+
+You can create different paid tools with different Stripe products (subscription or metered) by creating additional price IDs in your Stripe dashboard and passing them as environment variables.
 
 ### What Happens When a Free User Tries a Paid Tool
 
