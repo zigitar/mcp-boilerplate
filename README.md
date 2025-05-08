@@ -228,10 +228,15 @@ npx wrangler deploy
 
 1. After deployment, you'll get a URL like `https://your-worker-name.your-account.workers.dev`
 
-2. Update your Google OAuth settings:
+2a. Update your Google OAuth settings:
    - Go back to Google Cloud Console > APIs & Services > Credentials
    - Edit your OAuth client
-   - Add another redirect URI: `https://your-worker-name.your-account.workers.dev/auth/google/callback`
+   - Add another redirect URI: `https://your-worker-name.your-account.workers.dev/callback/google`
+
+2b. Update your GitHub OAuth App settings: (optional)
+   - Go to your GitHub Developer settings > OAuth Apps
+   - Select your OAuth App
+   - Update the "Authorization callback URL" to: `https://your-worker-name.your-account.workers.dev/callback/github`
 
 3. Add your settings to Cloudflare by running these commands (you'll be prompted to enter each value):
 ```bash
