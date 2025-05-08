@@ -42,7 +42,7 @@ npm install -g wrangler
 
 1. Create a database for user login:
 ```bash
-npx wrangler kv:namespace create "OAUTH_KV"
+npx wrangler kv namespace create "OAUTH_KV"
 ```
 
 1. After running this command, you'll see some text that includes `id` and `preview_id` values
