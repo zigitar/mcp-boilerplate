@@ -48,7 +48,7 @@ async function redirectToGoogle(c: GoogleHandlerContext, oauthReqInfo: AuthReque
         upstream_url: 'https://accounts.google.com/o/oauth2/v2/auth',
         scope: 'email profile openid',
         client_id: c.env.GOOGLE_CLIENT_ID, // Requires GOOGLE_CLIENT_ID in Env
-        redirect_uri: new URL('/callback', c.req.raw.url).href,
+        redirect_uri: new URL('/callback/google', c.req.raw.url).href,
         state: btoa(JSON.stringify(oauthReqInfo)),
         response_type: 'code',
         access_type: 'offline',
@@ -66,7 +66,7 @@ async function redirectToGoogle(c: GoogleHandlerContext, oauthReqInfo: AuthReque
     });
 }
 
-app.get("/callback", async (c: GoogleHandlerContext) => {
+app.get("/callback/google", async (c: GoogleHandlerContext) => {
     const stateQueryParam = c.req.query("state");
     if (!stateQueryParam) {
         return c.text("Invalid request: Missing state parameter", 400);
@@ -86,7 +86,7 @@ app.get("/callback", async (c: GoogleHandlerContext) => {
         client_id: c.env.GOOGLE_CLIENT_ID, // Requires GOOGLE_CLIENT_ID in Env
         client_secret: c.env.GOOGLE_CLIENT_SECRET, // Requires GOOGLE_CLIENT_SECRET in Env
         code: code as string,
-        redirect_uri: new URL('/callback', c.req.url).href,
+        redirect_uri: new URL('/callback/google', c.req.url).href,
         grant_type: 'authorization_code',
     };
 

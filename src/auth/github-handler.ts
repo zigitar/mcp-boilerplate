@@ -49,7 +49,7 @@ async function redirectToGithub(request: Request, oauthReqInfo: AuthRequest, git
 				upstream_url: 'https://github.com/login/oauth/authorize',
 				scope: 'read:user',
 				client_id: githubClientId,
-				redirect_uri: new URL('/callback', request.url).href,
+				redirect_uri: new URL('/callback/github', request.url).href,
 				state: btoa(JSON.stringify(oauthReqInfo)),
 			}),
 		},
@@ -64,7 +64,7 @@ async function redirectToGithub(request: Request, oauthReqInfo: AuthRequest, git
  * user metadata & the auth token as part of the 'props' on the token passed
  * down to the client. It ends by redirecting the client back to _its_ callback URL
  */
-app.get("/callback", async (c) => {
+app.get("/callback/github", async (c) => {
 	// Get the oathReqInfo out of KV
 	const oauthReqInfo = JSON.parse(atob(c.req.query("state") as string)) as AuthRequest;
 	if (!oauthReqInfo.clientId) {
@@ -77,7 +77,7 @@ app.get("/callback", async (c) => {
 		client_id: c.env.GITHUB_CLIENT_ID,
 		client_secret: c.env.GITHUB_CLIENT_SECRET,
 		code: c.req.query("code"),
-		redirect_uri: new URL("/callback", c.req.url).href,
+		redirect_uri: new URL("/callback/github", c.req.url).href,
 	});
 	if (errResponse) return errResponse;
 

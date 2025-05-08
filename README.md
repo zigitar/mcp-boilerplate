@@ -87,7 +87,7 @@ cp .dev.vars.example .dev.vars
 6. For the OAuth client:
    - Select "Web application" for Application type
    - Give it a name
-   - Under "Authorized redirect URIs" add: `http://localhost:8787/auth/google/callback`
+   - Under "Authorized redirect URIs" add: `http://localhost:8787/callback/google`
 7. Click "CREATE"
 8. You'll now see your Client ID and Client Secret - copy these values
 9. Add them to your `.dev.vars` file:
@@ -110,7 +110,7 @@ If you prefer to use GitHub for login instead of Google:
    - Application name: Give it a name (like "My AI Tool")
    - Homepage URL: `http://localhost:8787`
    - Application description: A brief description of your app (optional)
-   - Authorization callback URL: `http://localhost:8787/auth/github/callback`
+   - Authorization callback URL: `http://localhost:8787/callback/github`
 6. Click "Register application"
 7. On the next page, you'll see your Client ID
 8. Click "Generate a new client secret"
