@@ -4,7 +4,7 @@ This project helps you create your own remote MCP server on Cloudflare with user
 
 ## What You'll Get
 
-- An MCP server that works with , Cursor, Claude and other AI assistants
+- An MCP server that works with Cursor, Claude and other AI assistants
 - User login with Google or GitHub
 - Payment processing with Stripe
 - The ability to create both free and paid MCP tools
@@ -412,4 +412,4 @@ npx wrangler secret put STRIPE_WEBHOOK_SECRET
 
 ## Need Help?
 
-If you get stuck or have questions, check out the more detailed documentation or reach out for support! 
+If you encounter any bugs or have issues with the boilerplate, please submit an issue on the GitHub repository. Please note that this project is provided as-is and does not include direct support.
