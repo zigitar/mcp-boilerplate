@@ -365,7 +365,7 @@ tools.myPaidTool(this, {
 });
 ```
 
-You can create different paid tools with different Stripe products by creating additional price IDs in your Stripe dashboard and passing them as environment variables.
+You can create different paid tools with different Stripe products by creating additional price IDs in your Stripe dashboard and passing them as environment variables. Note: Currently, only Stripe subscription products are supported for paid tools.
 
 ### What Happens When a Free User Tries a Paid Tool
 
