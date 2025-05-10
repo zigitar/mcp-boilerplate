@@ -40,18 +40,20 @@ npm install
 npm install -g wrangler
 ```
 
-1. Create a database for user login:
+2. Create a database for user login:
 ```bash
 npx wrangler kv namespace create "OAUTH_KV"
 ```
 
-1. After running this command, you'll see some text that includes `id` and `preview_id` values
-   
-2. Open the `wrangler.jsonc` file in the project folder
+Note: you can't use a different name for this database. It has to be "OAUTH_KV".
 
-3. Look for the section with `"kv_namespaces": [`
+3. After running this command, you'll see some text that includes `id` and `preview_id` values
 
-4. Add your database information there:
+4. Open the `wrangler.jsonc` file in the project folder
+
+5. Look for the section with `"kv_namespaces": [`
+
+6. Add your database information there:
 ```json
 "kv_namespaces": [
   {
@@ -69,9 +71,9 @@ npx wrangler kv namespace create "OAUTH_KV"
 cp .dev.vars.example .dev.vars
 ```
 
-1. Open the `.dev.vars` file in your code editor
+2. Open the `.dev.vars` file in your code editor
 
-2. You'll need to add several values here (we'll get them in the next steps)
+3. You'll need to add several values here (we'll get them in the next steps)
 
 ### Step 4a: Setting Up Google Login (Recommended)
 
@@ -123,12 +125,12 @@ If you prefer to use GitHub for login instead of Google:
 GITHUB_CLIENT_ID="paste-your-client-id-here"
 GITHUB_CLIENT_SECRET="paste-your-client-secret-here"
 ```
-1.  You'll also need to update the default authentication in your code:
+11.  You'll also need to update the default authentication in your code:
     - Open `src/index.ts`
     - Find the import for Google handler: `import { GoogleHandler } from "./auth/google-handler";`
-    - Replace it with: `import { GithubHandler } from "./auth/github-handler";`
+    - Replace it with: `import { GitHubHandler } from "./auth/github-handler";`
     - Find the line with `defaultHandler: GoogleHandler as any,`
-    - Change it to: `defaultHandler: GithubHandler as any,`
+    - Change it to: `defaultHandler: GitHubHandler as any,`
 
 After completing either Step 4a or 4b, proceed to Step 5.
 
@@ -178,9 +180,9 @@ openssl rand -hex 32
 npx wrangler dev
 ```
 
-1. Your server will start at `http://localhost:8787`
+2. Your server will start at `http://localhost:8787`
 
-2. The main endpoint for AI tools will be at `http://localhost:8787/sse`
+3. The main endpoint for AI tools will be at `http://localhost:8787/sse`
 
 ### Step 8: Try It Out
 
@@ -209,8 +211,8 @@ Or with Claude Desktop:
   }
 }
 ```
-1. Restart Claude Desktop
-2. Your tools should now be available in Claude
+4. Restart Claude Desktop
+5. Your tools should now be available in Claude
 
 Or with MCP Inspector:
 
@@ -218,9 +220,9 @@ Or with MCP Inspector:
 ```bash
 npx @modelcontextprotocol/inspector@latest
 ```
-1. Enter your server URL: `http://localhost:8787/sse`
-2. Use the web interface to test and debug your tools
-3. You can directly call your tools, see the request/response data, and quickly iterate during development
+2. Enter your server URL: `http://localhost:8787/sse`
+3. Use the web interface to test and debug your tools
+4. You can directly call your tools, see the request/response data, and quickly iterate during development
 
 ### Step 9: Going Live (Deploying)
 
@@ -231,21 +233,21 @@ When you're ready to make your server available online:
 npx wrangler deploy
 ```
 
-1. After deployment, you'll get a URL like `https://your-worker-name.your-account.workers.dev`
+2. After deployment, you'll get a URL like `https://your-worker-name.your-account.workers.dev`
 
-2a. Update your Google OAuth settings:
+3a. Update your Google OAuth settings:
    - Go back to Google Cloud Console > APIs & Services > Credentials.
    - Edit your OAuth client.
    - Add another redirect URI: `https://your-worker-name.your-account.workers.dev/callback/google`.
    - Next, navigate to the "OAuth consent screen" page (still within "APIs & Services").
    - Under "Publishing status", if it currently shows "Testing", click the "Publish app" button and confirm to move it to "Production". This allows users outside your GSuite organization to use the login if you initially set it up as "External".
 
-2b. Update your GitHub OAuth App settings: (optional)
+3b. Update your GitHub OAuth App settings: (optional)
    - Go to your GitHub Developer settings > OAuth Apps
    - Select your OAuth App
    - Update the "Authorization callback URL" to: `https://your-worker-name.your-account.workers.dev/callback/github`
 
-3. Add your settings to Cloudflare by running these commands (you'll be prompted to enter each value):
+4. Add your settings to Cloudflare by running these commands (you'll be prompted to enter each value):
 ```bash
 npx wrangler secret put BASE_URL
 npx wrangler secret put COOKIE_ENCRYPTION_KEY
@@ -304,7 +306,7 @@ export function myTool(agent: PaidMcpAgent<Env, any, any>) {
 export * from './myTool';
 ```
 
-1. Register your tool in `src/index.ts`:
+5. Register your tool in `src/index.ts`:
 ```typescript
 // Inside the init() method, add:
 tools.myTool(this);
