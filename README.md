@@ -87,7 +87,10 @@ cp .dev.vars.example .dev.vars
 6. For the OAuth client:
    - Select "Web application" for Application type
    - Give it a name
-   - Under "Authorized redirect URIs" add: `http://localhost:8787/callback/google`
+   - Under "Authorized redirect URIs" add the following:
+```
+http://localhost:8787/callback/google
+```
 7. Click "CREATE"
 8. You'll now see your Client ID and Client Secret - copy these values
 9. Add them to your `.dev.vars` file:

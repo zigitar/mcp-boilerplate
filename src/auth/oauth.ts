@@ -15,18 +15,21 @@ export function getUpstreamAuthorizeUrl({
 	scope,
 	redirect_uri,
 	state,
+	hosted_domain,
 }: {
 	upstream_url: string;
 	client_id: string;
 	scope: string;
 	redirect_uri: string;
 	state?: string;
+	hosted_domain?: string;
 }) {
 	const upstream = new URL(upstream_url);
 	upstream.searchParams.set("client_id", client_id);
 	upstream.searchParams.set("redirect_uri", redirect_uri);
 	upstream.searchParams.set("scope", scope);
 	if (state) upstream.searchParams.set("state", state);
+	if (hosted_domain) upstream.searchParams.set("hd", hosted_domain);
 	upstream.searchParams.set("response_type", "code");
 	return upstream.href;
 }
