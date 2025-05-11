@@ -24,12 +24,22 @@ export class BoilerplateMCP extends PaidMcpAgent<Env, State, AgentProps> {
 	});
 
 	async init() {
+		// Example free tools (that don't require payment but do require a logged in user)
 		tools.addTool(this);
 		tools.calculateTool(this);
+
+		// Example of a free tool that checks for active subscriptions and the status of the logged in user's Stripe customer ID
+		tools.checkSubscriptionStatusTool(this, {
+			BASE_URL: this.env.BASE_URL
+		});
+
+		// Example of a paid tool that requires a logged in user and a subscription
 		tools.subscriptionTool(this, {
 			STRIPE_PRICE_ID: this.env.STRIPE_PRICE_ID,
 			BASE_URL: this.env.BASE_URL
 		});
+
+		// Example of a paid tool that requires a logged in user and a subscription with metered usage
 		tools.meteredAddTool(this, {
 			STRIPE_METERED_PRICE_ID: this.env.STRIPE_METERED_PRICE_ID,
 			BASE_URL: this.env.BASE_URL

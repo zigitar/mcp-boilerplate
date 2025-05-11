@@ -115,6 +115,7 @@ app.get('/callback/google', async (c) => {
       name,
       email,
       accessToken,
+      userEmail: email,
     } as Props,
   })
 

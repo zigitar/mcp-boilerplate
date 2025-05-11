@@ -153,6 +153,32 @@ STRIPE_PRICE_ID="price_your-price-id-here"
 STRIPE_METERED_PRICE_ID="your-stripe-metered-price-id"
 ```
 
+### Step 5a: Configuring the Stripe Customer Billing Portal
+
+This boilerplate includes a tool (`check_user_subscription_status`) that can provide your end-users with a link to their Stripe Customer Billing Portal. This portal allows them to manage their subscriptions, such as canceling them or, if you configure it, switching between different plans.
+
+**Initial Setup (Important):**
+
+By default, the Stripe Customer Billing Portal might not be fully configured in your Stripe account, especially in the test environment.
+
+1.  After setting up your Stripe keys and products (Step 5) and running your server, you can test the `check_user_subscription_status` tool (e.g., via MCP Inspector, or by triggering it through an AI assistant).
+2.  If the tool returns a JSON response where `billingPortal.message` contains an error like: *"Could not generate a link to the customer billing portal: No configuration provided and your test mode default configuration has not been created. Provide a configuration or create your default by saving your customer portal settings in test mode at https://dashboard.stripe.com/test/settings/billing/portal."*
+3.  You **must** visit the URL provided in that error message (usually `https://dashboard.stripe.com/test/settings/billing/portal`) and save your portal settings in Stripe. This activates the portal for your test environment. You'll need to do a similar check and configuration for your live environment.
+
+Once activated, the `check_user_subscription_status` tool will provide a direct link in the `billingPortal.url` field of its JSON response, which your users can use.
+
+**Allowing Users to Switch Plans (Optional):**
+
+By default, the billing portal allows users to cancel their existing subscriptions. If you offer multiple subscription products for your MCP server and want to allow users to switch between them:
+
+1.  In your Stripe Dashboard, navigate to **Settings** (click the gear icon in the top-right) and then find **Customer portal** under "Billing". (Alternatively, use the direct link: `https://dashboard.stripe.com/settings/billing/portal` for live mode, or `https://dashboard.stripe.com/test/settings/billing/portal` for test mode).
+2.  Under the "**Products**" section of the Customer Portal settings page, find "**Subscription products**".
+3.  Enable the "**Customers can switch plans**" toggle.
+4.  In the "Choose the eligible products that customers can update" subsection that appears, click to "**Find a test product...**" (or "Find a product..." in live mode) and add the other subscription products you want to make available for your users to switch to. The image you provided earlier shows this UI in Stripe.
+5.  You can also configure other options here, like allowing customers to change the quantity of their plan if applicable.
+
+This configuration empowers your users to manage their subscriptions more flexibly directly through the Stripe-hosted portal.
+
 ### Step 6: Complete Your Settings
 
 Make sure your `.dev.vars` file has all these values:
