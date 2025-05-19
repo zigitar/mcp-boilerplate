@@ -149,7 +149,7 @@ After completing either Step 4a or 4b, proceed to Step 5.
 4. Add these values to your `.dev.vars` file:
 ```ini
 STRIPE_SECRET_KEY="sk_test_your-key-here"
-STRIPE_PRICE_ID="price_your-price-id-here"
+STRIPE_SUBSCRIPTION_PRICE_ID="price_your-price-id-here"
 STRIPE_METERED_PRICE_ID="your-stripe-metered-price-id"
 ```
 
@@ -189,7 +189,7 @@ COOKIE_ENCRYPTION_KEY="generate-a-random-string-at-least-32-characters"
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 STRIPE_SECRET_KEY="your-stripe-secret-key"
-STRIPE_PRICE_ID="your-stripe-price-id"
+STRIPE_SUBSCRIPTION_PRICE_ID="your-stripe-price-id"
 STRIPE_METERED_PRICE_ID="your-stripe-metered-price-id"
 ```
 
@@ -280,7 +280,7 @@ npx wrangler secret put COOKIE_ENCRYPTION_KEY
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put STRIPE_SECRET_KEY
-npx wrangler secret put STRIPE_PRICE_ID
+npx wrangler secret put STRIPE_SUBSCRIPTION_PRICE_ID
 npx wrangler secret put STRIPE_METERED_PRICE_ID
 ```
    
@@ -338,9 +338,9 @@ export * from './myTool';
 tools.myTool(this);
 ```
 
-### Creating Paid Tools: Subscription or Metered
+### Creating Paid Tools: Subscription, Metered, or One-Time Payment
 
-You can create tools that require payment in two ways: recurring subscriptions or metered usage.
+You can create tools that require payment in three ways: recurring subscriptions, metered usage, or one-time payments.
 
 #### Option 1: Creating a Subscription-Based Paid Tool
 
@@ -354,7 +354,7 @@ This option is suitable if you want to charge users a recurring fee (e.g., month
     *   Select "Recurring" for the pricing model.
     *   Set the price amount and billing interval (e.g., $10 per month).
     *   Save the price.
-4.  After creating the price, Stripe will show you the Price ID (e.g., `price_xxxxxxxxxxxxxx`). This is the ID you will use for `STRIPE_PRICE_ID` in your `.dev.vars` file and when registering the tool.
+4.  After creating the price, Stripe will show you the Price ID (e.g., `price_xxxxxxxxxxxxxx`). This is the ID you will use for `STRIPE_SUBSCRIPTION_PRICE_ID` in your `.dev.vars` file and when registering the tool.
 
 **Tool Implementation:**
 
@@ -368,9 +368,9 @@ import { REUSABLE_PAYMENT_REASON } from "../helpers/constants";
 
 export function mySubscriptionTool(
   agent: PaidMcpAgent<Env, any, any>,
-  env?: { STRIPE_PRICE_ID: string; BASE_URL: string }
+  env?: { STRIPE_SUBSCRIPTION_PRICE_ID: string; BASE_URL: string }
 ) {
-  const priceId = env?.STRIPE_PRICE_ID || null;
+  const priceId = env?.STRIPE_SUBSCRIPTION_PRICE_ID || null;
   const baseUrl = env?.BASE_URL || null;
 
   if (!priceId || !baseUrl) {
@@ -413,7 +413,7 @@ export * from './mySubscriptionTool';
 ```typescript
 // Inside the init() method, add:
 tools.mySubscriptionTool(this, {
-  STRIPE_PRICE_ID: this.env.STRIPE_PRICE_ID, // Ensure this matches a subscription Price ID
+  STRIPE_SUBSCRIPTION_PRICE_ID: this.env.STRIPE_SUBSCRIPTION_PRICE_ID, // Ensure this matches a subscription Price ID
   BASE_URL: this.env.BASE_URL
 });
 ```
@@ -472,8 +472,15 @@ export function myMeteredTool(
       };
     },
     {
-      priceId, // Uses the Stripe Price ID for a metered product
-      successUrl: `${baseUrl}/payment/success`,
+      checkout: {
+        success_url: `${baseUrl}/payment/success`,
+        line_items: [
+          {
+            price: priceId, // Uses the Stripe Price ID for a metered product
+          },
+        ],
+        mode: 'subscription', // Metered plans are usually set up as subscriptions
+      },
       paymentReason:
         "METER INFO: Details about your metered usage. E.g., Your first X uses are free, then $Y per use. " +
         METERED_TOOL_PAYMENT_REASON, // Customize this message
@@ -503,6 +510,100 @@ tools.myMeteredTool(this, {
   STRIPE_METERED_PRICE_ID: this.env.STRIPE_METERED_PRICE_ID, // Ensure this matches your metered Price ID
   BASE_URL: this.env.BASE_URL
 });
+```
+
+#### Option 3: Creating a One-Time Payment Tool
+
+This option is suitable if you want to charge users a single fee for access to a tool, rather than a recurring subscription or usage-based metering.
+
+**Stripe Setup for One-Time Payments:**
+
+1.  In your Stripe Dashboard, create a new Product.
+2.  Give your product a name (e.g., "Single Report Generation").
+3.  Add a Price to this product:
+    *   Select "One time" for the pricing model.
+    *   Set the price amount.
+    *   Save the price.
+4.  After creating the price, Stripe will show you the Price ID (e.g., `price_xxxxxxxxxxxxxx`). This is the ID you will use for a new environment variable, for example, `STRIPE_ONE_TIME_PRICE_ID`.
+
+**Tool Implementation:**
+
+1.  Create a new file in the `src/tools` folder (for example: `myOnetimeTool.ts`).
+2.  Use this template, inspired by the `onetimeAdd.ts` example:
+
+```typescript
+import { z } from "zod";
+import { experimental_PaidMcpAgent as PaidMcpAgent } from "@stripe/agent-toolkit/cloudflare";
+import { REUSABLE_PAYMENT_REASON } from "../helpers/constants"; // Or a more specific reason
+
+export function myOnetimeTool(
+  agent: PaidMcpAgent<Env, any, any>, // Adjust AgentProps if needed
+  env?: { STRIPE_ONE_TIME_PRICE_ID: string; BASE_URL: string }
+) {
+  const priceId = env?.STRIPE_ONE_TIME_PRICE_ID || null;
+  const baseUrl = env?.BASE_URL || null;
+
+  if (!priceId || !baseUrl) {
+    throw new Error("Stripe One-Time Price ID and Base URL must be provided for this tool");
+  }
+
+  agent.paidTool(
+    "my_onetime_tool_name", // The tool name
+    {
+      // Input parameters
+      input1: z.string(), // Parameter definitions using Zod
+    },
+    async ({ input1 }: { input1: string }) => ({
+      // The function that runs when the tool is called
+      content: [
+        { type: "text", text: `You processed: ${input1}` },
+      ],
+    }),
+    {
+      checkout: { // Defines a one-time payment checkout session
+        success_url: `${baseUrl}/payment/success`,
+        line_items: [
+          {
+            price: priceId, // Uses the Stripe Price ID for a one-time payment product
+            quantity: 1,
+          },
+        ],
+        mode: 'payment', // Specifies this is a one-time payment, not a subscription
+      },
+      paymentReason: "Enter a clear reason for this one-time charge. E.g., 'Unlock premium feature X for a single use.'", // Customize this message
+    }
+  );
+}
+```
+
+3.  Modify the code:
+    *   Change the function name (`myOnetimeTool`).
+    *   Change the tool name (`my_onetime_tool_name`).
+    *   Update the input parameters and the tool's core logic.
+    *   Ensure the `checkout.mode` is set to `'payment'`.
+    *   Customize the `paymentReason` to clearly explain the one-time charge to the user.
+4.  Add your tool to `src/tools/index.ts`:
+```typescript
+// Add this line with your other exports
+export * from './myOnetimeTool';
+```
+
+5.  Register your tool in `src/index.ts`:
+```typescript
+// Inside the init() method, add:
+tools.myOnetimeTool(this, {
+  STRIPE_ONE_TIME_PRICE_ID: this.env.STRIPE_ONE_TIME_PRICE_ID, // Ensure this matches your one-time payment Price ID
+  BASE_URL: this.env.BASE_URL
+});
+```
+6. Remember to add `STRIPE_ONE_TIME_PRICE_ID` to your `.dev.vars` file and Cloudflare secrets:
+   In `.dev.vars`:
+```ini
+STRIPE_ONE_TIME_PRICE_ID="price_your-onetime-price-id-here"
+```
+   And for production:
+```bash
+npx wrangler secret put STRIPE_ONE_TIME_PRICE_ID
 ```
 
 You can create different paid tools with different Stripe products (subscription or metered) by creating additional price IDs in your Stripe dashboard and passing them as environment variables.

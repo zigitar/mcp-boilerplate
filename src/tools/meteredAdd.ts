@@ -16,17 +16,24 @@ export function meteredAddTool(
 	
 	agent.paidTool(
 		"metered_add",
+		"Adds two numbers together for metered usage.",
 		{ a: z.number(), b: z.number() },
 		async ({ a, b }: { a: number; b: number }) => ({
 			content: [{ type: "text", text: String(a + b) }],
 		}),
 		{
-			priceId,
-			successUrl: `${baseUrl}/payment/success`,
-			paymentReason: 
-				"METER INFO: Your first 3 additions are free, then we charge 10 cents per addition. " 
-				+ METERED_TOOL_PAYMENT_REASON,
+			checkout: {
+				success_url: `${baseUrl}/payment/success`,
+				line_items: [
+				{
+					price: priceId,
+				},
+				],
+				mode: 'subscription',
+			},
 			meterEvent: "metered_add_usage",
+			paymentReason: "METER INFO: Your first 3 additions are free, then we charge 10 cents per addition. " 
+				+ METERED_TOOL_PAYMENT_REASON,
 		}
 	);
 }

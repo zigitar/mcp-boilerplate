@@ -6,12 +6,12 @@ type AgentProps = {
 	userEmail: string;
 };
 
-export function subscriptionTool(
+export function onetimeAddTool(
 	agent: PaidMcpAgent<Env, any, AgentProps>,
-	env?: { STRIPE_SUBSCRIPTION_PRICE_ID: string; BASE_URL: string }
+	env?: { STRIPE_ONE_TIME_PRICE_ID: string; BASE_URL: string }
 ) {
 
-	const priceId = env?.STRIPE_SUBSCRIPTION_PRICE_ID || null;
+	const priceId = env?.STRIPE_ONE_TIME_PRICE_ID || null;
 	const baseUrl = env?.BASE_URL || null;
 
 	if (!priceId || !baseUrl) {
@@ -19,8 +19,8 @@ export function subscriptionTool(
 	}
 	
 	agent.paidTool(
-		"subscription_add",
-		"Adds two numbers together for paid subscribers.",
+		"onetime_add",
+		"Adds two numbers together for one-time payment.",
 		{ a: z.number(), b: z.number() },
 		async ({ a, b }: { a: number; b: number }) => ({
 			content: [{ type: "text", text: String(a + b) }],
@@ -34,7 +34,7 @@ export function subscriptionTool(
 					quantity: 1,
 				},
 				],
-				mode: 'subscription',
+				mode: 'payment',
 			},
 			paymentReason: REUSABLE_PAYMENT_REASON,
 		}

@@ -1,16 +1,21 @@
 import { z } from "zod";
 import { experimental_PaidMcpAgent as PaidMcpAgent } from "@stripe/agent-toolkit/cloudflare";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import Stripe from "stripe";
 
-export function checkSubscriptionStatusTool(
+export function checkPaymentHistoryTool(
 	agent: PaidMcpAgent<Env, any, any>,
-	env: { BASE_URL: string } // BASE_URL is needed for the billing portal return URL
+	env: { BASE_URL: string; STRIPE_SECRET_KEY: string }
 ) {
 	const baseUrl = env.BASE_URL;
+	const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+		httpClient: Stripe.createFetchHttpClient(),
+		apiVersion: "2025-02-24.acacia",
+	});
 
 	(agent.server as McpServer).tool(
-		"check_user_subscription_status",
-		"This tool checks for active subscriptions and the status of the logged in user's Stripe customer ID.",
+		"check_payment_history",
+		"This tool checks for active subscriptions and one-time purchases for the logged in user's Stripe customer ID.",
 		{},
 		async () => {
 			let responseData: {
@@ -25,6 +30,16 @@ export function checkSubscriptionStatusTool(
 					cancel_at?: number | null;
 					ended_at?: number | null;
 				}>;
+				oneTimePayments?: Array<{
+					id: string;
+					amount: number;
+					currency: string;
+					status: string;
+					description: string | null;
+					created: number;
+					receipt_url: string | null;
+					productName?: string;
+				}>;
 				billingPortal?: { url: string | null; message: string; };
 				statusMessage?: string;
 				error?: string;
@@ -34,23 +49,61 @@ export function checkSubscriptionStatusTool(
 
 			try {
 				let userEmail = agent.props?.userEmail;
-				const customerId = await agent.getCurrentCustomerID();
+				let customerId: string | null = null;
 
-				if (!userEmail && customerId) {
-					try {
-						const customer = await agent.stripe().customers.retrieve(customerId);
-						if (customer && !customer.deleted && 'email' in customer && customer.email) {
-							userEmail = customer.email;
+				// Attempt 1: Try to get customerId from agent.state
+				if (agent.state?.stripe?.customerId) {
+					customerId = agent.state.stripe.customerId;
+					// If we got customerId from state, try to ensure userEmail is also available if not already set from props.
+					if (!userEmail && customerId) {
+						try {
+							const customer = await stripe.customers.retrieve(customerId);
+							if (customer && !customer.deleted && 'email' in customer && customer.email) {
+								userEmail = customer.email; // Populate userEmail based on customerId from state
+							}
+						} catch (e) {
+							// Non-fatal: if customer retrieve fails, we still have customerId. Email might remain null.
+							// console.warn("Could not retrieve customer details to confirm email from state-based customerId:", e);
 						}
-					} catch (e) {
-						// console.error("Error retrieving customer details from Stripe to get email:", e);
-						// Non-fatal, proceed without email if retrieval fails
 					}
 				}
+
+				// Attempt 2: If customerId not found in state, try to find by userEmail (if email is available)
+				if (!customerId && userEmail) {
+					try {
+						const customers = await stripe.customers.list({
+							email: userEmail,
+							limit: 1,
+						});
+						if (customers.data.length > 0) {
+							customerId = customers.data[0].id;
+							// console.log(`Found customer ID ${customerId} for email ${userEmail}`);
+						} else {
+							// console.log(`No Stripe customer found for email ${userEmail}.`);
+							// For a "check status" tool, we don't create a customer if one isn't found.
+						}
+					} catch (e: any) {
+						// console.error(`Error searching for customer by email ${userEmail}:`, e.message);
+						responseData.error = `Error finding Stripe customer for email ${userEmail}: ${e.message}`;
+						responseData.isError = true;
+						return {
+							content: [{ type: "text", text: JSON.stringify(responseData, null, 2) }],
+						};
+					}
+				}
+				
 				responseData.userEmail = userEmail || null;
 
 				if (!customerId) {
-					responseData.statusMessage = "Could not identify your Stripe customer ID. Have you previously interacted with a paid feature or logged in?";
+					let message = "Could not identify your Stripe customer ID. ";
+					if (userEmail) {
+						message += `No customer record was found for your email: ${userEmail}. Have you previously completed a checkout or used a paid feature?`;
+						responseData.agentInstructions = `AI_AGENT_ACTION: Inform the user that no Stripe customer account was found for their email ${userEmail}. Advise them to check the email provided or complete a transaction if they expect to have an account.`;
+					} else {
+						message += "Your email is not available to the agent, and no existing customer ID was found in your session state.";
+						responseData.agentInstructions = "AI_AGENT_ACTION: Inform the user that their email is not available and no customer ID is in their session state, so subscription status cannot be checked. Ask them to ensure their email is correctly configured/provided or to log in again.";
+					}
+					responseData.statusMessage = message;
 					responseData.isError = true;
 					return {
 						content: [{ type: "text", text: JSON.stringify(responseData, null, 2) }],
@@ -58,7 +111,6 @@ export function checkSubscriptionStatusTool(
 				}
 				responseData.stripeCustomerId = customerId;
 
-				const stripe = agent.stripe();
 				const subscriptionsData = await stripe.subscriptions.list({
 					customer: customerId,
 					status: 'active',
@@ -110,6 +162,69 @@ export function checkSubscriptionStatusTool(
 					responseData.statusMessage = "No active subscriptions found.";
 				}
 
+				// Fetch one-time payments (charges)
+				try {
+					const charges = await stripe.charges.list({
+						customer: customerId,
+						limit: 20, // Adjust limit as needed
+					});
+					responseData.oneTimePayments = [];
+					if (charges.data.length > 0) {
+						for (const charge of charges.data) {
+							// We're interested in successful, non-refunded, standalone charges.
+							// Subscriptions also create charges, so we try to filter those out
+							// by checking if `invoice` is null. This isn't a perfect filter
+							// as some direct charges might have invoices, but it's a common case.
+							// Also, payment intents are the newer way, but charges cover older transactions.
+							if (charge.paid && !charge.refunded && !charge.invoice) {
+								let productName: string | undefined = undefined;
+								// Attempt to get product name if a product ID is associated (might not always be the case for charges)
+								// This part is speculative as charges don't directly link to products like subscription items do.
+								// Often, the description or metadata on the charge or its payment_intent might hold product info.
+								// For simplicity, we'll rely on description for now.
+								// If `transfer_data` and `destination` exist, it might be a connect payment, not a direct sale.
+								
+								// If you have a way to link charges to specific products (e.g., via metadata), implement here.
+								// For example, if you store product_id in charge metadata:
+								// if (charge.metadata && charge.metadata.product_id) {
+								//   try {
+								//     const product = await stripe.products.retrieve(charge.metadata.product_id);
+								//     productName = product.name;
+								//   } catch (e) {
+								//     console.warn("Could not retrieve product for charge:", e);
+								//   }
+								// }
+
+								responseData.oneTimePayments.push({
+									id: charge.id,
+									amount: charge.amount,
+									currency: charge.currency,
+									status: charge.status,
+									description: charge.description || 'N/A',
+									created: charge.created,
+									receipt_url: charge.receipt_url,
+									productName: productName, // Will be undefined if not found
+								});
+							}
+						}
+						if (responseData.oneTimePayments.length > 0) {
+							const existingMsg = responseData.statusMessage ? responseData.statusMessage + " " : "";
+							responseData.statusMessage = existingMsg + `Found ${responseData.oneTimePayments.length} relevant one-time payment(s).`;
+						} else {
+							const existingMsg = responseData.statusMessage ? responseData.statusMessage + " " : "";
+							responseData.statusMessage = existingMsg + "No relevant one-time payments found.";
+						}
+					} else {
+						const existingMsg = responseData.statusMessage ? responseData.statusMessage + " " : "";
+						responseData.statusMessage = existingMsg + "No one-time payment history found.";
+					}
+				} catch (e: any) {
+					// console.error("Error fetching one-time payments:", e.message);
+					const existingMsg = responseData.statusMessage ? responseData.statusMessage + " " : "";
+					responseData.statusMessage = existingMsg + "Could not retrieve one-time payment history due to an error.";
+					// Optionally, add to responseData.error if this should be a hard error
+				}
+
 				responseData.billingPortal = { url: null, message: "" };
 				if (baseUrl) {
 					try {
@@ -156,6 +271,10 @@ export function checkSubscriptionStatusTool(
 					"If it\'s set to cancel (from 'cancel_at_period_end' is true and 'cancel_at' is set), state the cancellation date. " +
 					"Otherwise, if it\'s active, state its renewal date (from 'current_period_end'). " +
 					"All relevant dates are provided as Unix timestamps in the subscription data; please convert them to a human-readable format (e.g., YYYY-MM-DD or Month Day, Year) when presenting to the user. ";
+
+				if (responseData.oneTimePayments && responseData.oneTimePayments.length > 0) {
+					agentInstructionText += "Also, list any one-time payments, including the product name (if available) or description, amount (formatted with currency), status, and date of purchase (human-readable). Provide the receipt URL if available. ";
+				}
 
 				if (responseData.billingPortal?.url) {
 					if (anySubscriptionEndingOrCancelled) {

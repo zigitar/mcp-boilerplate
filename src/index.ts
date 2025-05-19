@@ -12,7 +12,7 @@ import * as tools from './tools';
 type State = PaymentState & {};
 
 type AgentProps = Props & {
-	STRIPE_PRICE_ID: string;
+	STRIPE_SUBSCRIPTION_PRICE_ID: string;
 	BASE_URL: string;
 };
 
@@ -29,13 +29,20 @@ export class BoilerplateMCP extends PaidMcpAgent<Env, State, AgentProps> {
 		tools.calculateTool(this);
 
 		// Example of a free tool that checks for active subscriptions and the status of the logged in user's Stripe customer ID
-		tools.checkSubscriptionStatusTool(this, {
+		tools.checkPaymentHistoryTool(this, {
+			BASE_URL: this.env.BASE_URL,
+			STRIPE_SECRET_KEY: this.env.STRIPE_SECRET_KEY
+		});
+
+		// Example of a paid tool that requires a logged in user and a one-time payment
+		tools.onetimeAddTool(this, {
+			STRIPE_ONE_TIME_PRICE_ID: this.env.STRIPE_ONE_TIME_PRICE_ID,
 			BASE_URL: this.env.BASE_URL
 		});
 
 		// Example of a paid tool that requires a logged in user and a subscription
 		tools.subscriptionTool(this, {
-			STRIPE_PRICE_ID: this.env.STRIPE_PRICE_ID,
+			STRIPE_SUBSCRIPTION_PRICE_ID: this.env.STRIPE_SUBSCRIPTION_PRICE_ID,
 			BASE_URL: this.env.BASE_URL
 		});
 
