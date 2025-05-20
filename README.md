@@ -248,8 +248,12 @@ Or with MCP Inspector:
 
 1. Run MCP Inspector and connect to your server:
 ```bash
-npx @modelcontextprotocol/inspector@latest
+npx @modelcontextprotocol/inspector@0.11.0 
 ```
+
+> [!WARNING]
+> The latest version of MCP Inspector is 0.12.0 but using npx @modelcontextprotocol/inspector@latest doesn't work right now. Working on it.
+
 2. Enter your server URL: `http://localhost:8787/sse`
 3. Use the web interface to test and debug your tools
 4. You can directly call your tools, see the request/response data, and quickly iterate during development
