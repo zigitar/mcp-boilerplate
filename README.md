@@ -1,6 +1,10 @@
 # MCP Boilerplate: Simple Setup Guide
 
-This project helps you create your own remote MCP server on Cloudflare with user login and payment options. You don't need to be a technical expert to get it running!
+This project helps you create your own remote MCP server on Cloudflare with user login and payment options. You don't need to be a technical expert to get it running.
+
+> [!NOTE]
+> This project is now free to use and open source. If you want to support me, just follow me on X [@iannuttall](https://x.com/iannuttall) and subscribe to [my newsletter](https://ian.is).
+
 
 ## What You'll Get
 
