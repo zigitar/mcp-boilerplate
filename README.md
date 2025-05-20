@@ -28,7 +28,7 @@ Before starting, make sure you have:
 
 1. Clone this repository to your computer:
 ```bash
-git clone https://github.com/playbookshq/mcp-boilerplate.git
+git clone https://github.com/iannuttall/mcp-boilerplate.git
 cd mcp-boilerplate
 ```
 
